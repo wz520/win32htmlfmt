@@ -1,7 +1,7 @@
 " File: win32htmlfmt.vim
 " Author: wz520 [wingzero1040@gmail.com]
 " Baidu Tieba ID: 天使的枷锁
-" Last Modified: 2013-08-26
+" Last Modified: 2013-09-04
 "
 " 本插件提供一系列函数用于从 Windows 剪贴板中粘贴 HTML Format 格式的数据到 Vim
 "   中，即：可以粘贴网页浏览器中复制的内容的 HTML 源代码，方便编写 HTML。
@@ -46,6 +46,17 @@
 "	:call win32htmlfmt#toList(s)
 "	    将字符串 s 以 \n 分割成列表，并删除行尾的 \r （在 Vim 里通常显示为 ^M）
 " 
+" 2013-09-04 版新增以下函数：
+"   :call win32htmlfmt#pasteKeyword(kwd)
+"		获取 Description 中指定 Keyword 的值，并粘贴到当前行下面。
+"		kwd 参数指定要获取的 Keyword 。
+"		[opt] 参数的用法请参阅上面的 pasteFragment() 或 pasteAll() 函数。
+"		比较有用的 Keyword 是 "SourceURL"，可以获取被复制页面的 URL 地址。
+"		其他 Keyword 请参阅 MSDN 。
+"   :call win32htmlfmt#getKeyword(kwd)
+"		与 pasteKeyword() 相似，区别在于将原本用于粘贴的内容作为字符串返回。
+"
+" 
 " paste* 系列函数在当剪贴板中没有 HTML Format 格式的数据时会显示一条提示信息，
 " 而 get* 系列函数不会（返回空串表示没有数据）。
 " 
@@ -66,6 +77,12 @@ let s:dll_path = expand("<sfile>:r")
 let s:opt_nodatamsg = 0  " Echo message when no data in the clipboard
 
 " Convert "HTML Format" data to a dict
+"
+" the dict returned by this function contains all Description keywords:
+" e.g. dict['StartHTML'] contains the value of StartHTML keyword of Description
+"
+" In addition, it contains an extra key called "all" which contains the entire
+" "HTML Format" data.
 func s:ToDict(htmlformat)
 	let input = a:htmlformat
 	let output = {}
@@ -85,7 +102,7 @@ func s:ToDict(htmlformat)
 
 	let pos = 0
 	let leadinglineslist = split(leadinglines, "\n")
-	unlet leadinglines " avoid use it accidentally
+	unlet leadinglines " avoid using it accidentally
 
 	" -- Get each line, until endpos is reached or no more keywords
 	for line in leadinglineslist
@@ -146,6 +163,26 @@ func win32htmlfmt#getRange(start_kwd, end_kwd)
 		let epos = str2nr(dict[(a:end_kwd)], 10)
 		return dict['all'][(spos):(epos-1)]
 	endif
+endfunc
+
+" Get the value of the keyword of "HTML Format" data
+func win32htmlfmt#getKeyword(kwd)
+	let dict = s:GetHTMLFormat()
+	return empty(dict) ? "" : dict[(a:kwd)]
+endfunc
+
+func win32htmlfmt#pasteKeyword(kwd, ...)
+	let s:opt_nodatamsg = 1  " Show message if no data found
+	let value = win32htmlfmt#getKeyword(a:kwd)
+	if empty(value)
+		return
+	endif
+
+	let inspoint = line('.')
+	if len(a:000) > 0 && a:000[0] =~# 'above'
+		let inspoint -= 1
+	endif
+	call append(inspoint, value)
 endfunc
 
 func win32htmlfmt#toList(s)
